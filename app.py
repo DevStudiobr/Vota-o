@@ -1,43 +1,43 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, jsonify
+import random
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///votes.db'
-db = SQLAlchemy(app)
 
-class Poll(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    question = db.Column(db.String(200), nullable=False)
-    options = db.Column(db.String(500), nullable=False)
-    votes = db.Column(db.String(500), nullable=False, default='')
+votantes = []
+opcoes = []
 
 @app.route('/')
 def index():
-    polls = Poll.query.all()
-    return render_template('index.html', polls=polls)
+    return render_template('index.html')
 
-@app.route('/create_poll', methods=['POST'])
-def create_poll():
-    question = request.form['question']
-    options = request.form['options'].split(',')
-    poll = Poll(question=question, options=','.join(options))
-    db.session.add(poll)
-    db.session.commit()
-    return redirect(url_for('index'))
+@app.route('/adicionar_votante', methods=['POST'])
+def adicionar_votante():
+    nome_votante = request.json.get('nome')
+    if nome_votante:
+        votantes.append(nome_votante)
+        return jsonify(votantes), 200
+    return jsonify({'error': 'Nome inválido'}), 400
 
-@app.route('/vote/<int:poll_id>', methods=['POST'])
-def vote(poll_id):
-    poll = Poll.query.get_or_404(poll_id)
-    votes = poll.votes.split(',') if poll.votes else []
-    option = request.form['option']
-    if option in votes:
-        votes.remove(option)
-    else:
-        votes.append(option)
-    poll.votes = ','.join(votes)
-    db.session.commit()
-    return redirect(url_for('index'))
+@app.route('/adicionar_opcao', methods=['POST'])
+def adicionar_opcao():
+    opcao_votacao = request.json.get('opcao')
+    if opcao_votacao:
+        opcoes.append(opcao_votacao)
+        return jsonify(opcoes), 200
+    return jsonify({'error': 'Opção inválida'}), 400
+
+@app.route('/realizar_votacao', methods=['GET'])
+def realizar_votacao():
+    if not votantes or not opcoes:
+        return jsonify({'error': 'É necessário ter votantes e opções para realizar a votação.'}), 400
+    
+    votos = {opcao: 0 for opcao in opcoes}
+    
+    for votante in votantes:
+        voto = random.choice(opcoes)
+        votos[voto] += 1
+    
+    return jsonify(votos), 200
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)
